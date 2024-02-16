@@ -15,6 +15,50 @@
 //! ```rust
 //! use rsjson;
 //! ```
+//!
+//! # Code example
+//! - read and parse a json file
+//! ```rust
+//! let json = rsjson::Json::fromFile("/path/to/file.json".to_string());
+//! ```
+//!
+//! - create an empty json instance
+//! ```rust
+//! let json = rsjson::Json::new();
+//! ```
+//!
+//! - add a node
+//! ```rust
+//! json.addNode(
+//!     Node::new(
+//!         "nodeLabel",
+//!         jsonfile::NodeContent::Int(32)
+//!     )
+//! );
+//! ```
+//!
+//! - edit a node's label
+//! ```rust
+//! json.editNode(
+//!     "nodeLabel",
+//!     "newNodeLabel"
+//! );
+//! ```
+//!
+//! - edit a node's content
+//! ```rust
+//! json.editContent(
+//!     "nodeLabel",
+//!     jsonfile::NodeContent::Bool(true)
+//! );
+//! ```
+//!
+//! - remove a node
+//! ```rust
+//! json.removeNode(
+//!     "nodeLabel"
+//! );
+//! ```
 
 #![allow(non_snake_case)]
 #![allow(dead_code)]
@@ -348,15 +392,6 @@ impl Json {
         return None;
     }
 
-    pub fn getNode(&self, label: String) -> Option<&Node> {
-        for node in &self.nodes {
-            if node.label == label {
-                return Some(&node);
-            }
-        }
-        return None;
-    }
-
     fn renderJson(json: &Json, indent: String) -> String {
         let mut content = String::from("{");
 
@@ -472,6 +507,21 @@ impl Json {
             }
         }
 
+        return false;
+    }
+
+    /// Removes a node basing on its label
+    pub fn removeNode(&mut self, label: String) -> bool {
+        let mut index: usize = 0;
+
+        for node in &self.nodes {
+            if node.label == label {
+                self.nodes.remove(index);
+
+                return true;
+            }
+            index += 1;
+        }
         return false;
     }
 }

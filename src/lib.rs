@@ -1,7 +1,7 @@
 //! Json file parser library
 //!
 //! # Installation
-//! ```Cargo.toml
+//! ```toml
 //! ...
 //! [dependencies]
 //! rsjson = "0.1.0";

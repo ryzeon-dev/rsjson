@@ -1,2 +1,6 @@
 /target
 /Cargo.lock
+/out
+/newFile.json
+/test.json
+/.idea

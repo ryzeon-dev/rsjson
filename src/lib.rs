@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.1.0";
+//! rsjson = "0.1.2";
 //! ```
 //! or run
 //! ```bash
@@ -30,9 +30,9 @@
 //! - add a node
 //! ```rust
 //! json.addNode(
-//!     Node::new(
-//!         "nodeLabel",
-//!         jsonfile::NodeContent::Int(32)
+//!     rsjson::Node::new(
+//!         String::from("nodeLabel"),
+//!         rsjson::NodeContent::Int(32)
 //!     )
 //! );
 //! ```
@@ -40,23 +40,23 @@
 //! - edit a node's label
 //! ```rust
 //! json.editNode(
-//!     "nodeLabel",
-//!     "newNodeLabel"
+//!     String::from("nodeLabel"),
+//!     String::from("newNodeLabel")
 //! );
 //! ```
 //!
 //! - edit a node's content
 //! ```rust
 //! json.editContent(
-//!     "nodeLabel",
-//!     jsonfile::NodeContent::Bool(true)
+//!     String::from("nodeLabel"),
+//!     rsjson::NodeContent::Bool(true)
 //! );
 //! ```
 //!
 //! - remove a node
 //! ```rust
 //! json.removeNode(
-//!     "nodeLabel"
+//!     String::from("nodeLabel")
 //! );
 //! ```
 

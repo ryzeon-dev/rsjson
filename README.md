@@ -12,7 +12,7 @@
 ```toml
 ...
 [dependencies]
-rsjson = "0.1.2"
+rsjson = "0.1.3"
 ```
 - or run the following command in terminal:
 ```bash

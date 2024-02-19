@@ -190,7 +190,7 @@ impl Json {
                 index = newIndex;
 
                 let newIndex = Json::skipNull(&content, index);
-                if newIndex == (content.len() - 1) {
+                if newIndex == (content.len() - 1) || &content[newIndex..newIndex + 1] == "}" {
                     break
                 } else {
                     panic!("Json format error");
@@ -220,6 +220,7 @@ impl Json {
                 let newIndex = Json::skipNull(&content, index);
                 if newIndex == (content.len() - 1) {
                     break
+
                 } else {
                     panic!("Json format error");
                 }
@@ -532,22 +533,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut json = Json::new();
-
-        json.addNode(Node::new(String::from("a"), NodeContent::String(String::from("a"))));
-        json.addNode(Node::new(String::from("b"), NodeContent::Bool(true)));
-
-        json.changeLabel(String::from("a"), String::from("c"));
-        json.changeContent(
-            String::from("c"),
-            NodeContent::List(
-                Vec::from([
-                    NodeContent::Int(10), NodeContent::Bool(false), NodeContent::Float(32.64)
-                ])
-            )
-        );
-
-        json.writeToFile(String::from("newFile.json"));
+        let json = Json::fromFile(String::from("/etc/rs-raid/config.json"));
+        println!("{:?}", json.get("disks".to_string()).unwrap().toList());
 
         assert_eq!(0, 0);
     }

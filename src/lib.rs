@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.1.2";
+//! rsjson = "0.1.4";
 //! ```
 //! or run
 //! ```bash
@@ -73,7 +73,7 @@ const DIGITS: [&str; 11] = [
 ];
 
 /// The enum implementation contains the various types of elements that can be contained in a json file
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum NodeContent {
     String(String),
     Int(usize),
@@ -114,16 +114,16 @@ impl NodeContent {
         }
     }
 
-    pub fn toJson(&self) -> Option<&Json> {
+    pub fn toJson(&self) -> Option<Json> {
         match self {
-            NodeContent::Json(value) => Some(value.to_owned()),
+            NodeContent::Json(value) => Some(value.clone()),
             _ => None
         }
     }
 
-    pub fn toList(&self) -> Option<&Vec<NodeContent>> {
+    pub fn toList(&self) -> Option<Vec<NodeContent>> {
         match self {
-            NodeContent::List(value) => Some(value.to_owned()),
+            NodeContent::List(value) => Some(value.clone()),
             _ => None
         }
     }
@@ -134,7 +134,7 @@ impl NodeContent {
 }
 
 /// Data structure containig label and value for a node in the json structure
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     label: String,
     content: NodeContent,
@@ -147,10 +147,18 @@ impl Node {
             content: content
         }
     }
+
+    pub fn label(&self) -> String {
+        return self.label.clone();
+    }
+
+    pub fn content(&self) -> NodeContent {
+        return self.content.clone();
+    }
 }
 
 /// Contains the vector of nodes contained in the json file
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Json {
     nodes: Vec<Node>
 }
@@ -162,7 +170,7 @@ impl Json {
         }
     }
 
-    fn makeNew(nodes: Vec<Node>) -> Json {
+    pub fn from(nodes: Vec<Node>) -> Json {
         Json {
             nodes: nodes
         }
@@ -177,7 +185,7 @@ impl Json {
             Ok(fileContent) => fileContent
         };
 
-        let mut json = Json::makeNew(Vec::<Node>::new());
+        let mut json = Json::from(Vec::<Node>::new());
         let mut index: usize = 0;
 
         while index < content.len() {
@@ -205,7 +213,7 @@ impl Json {
     pub fn fromString(string: String) -> Json {
         let content = string.clone();
 
-        let mut json = Json::makeNew(Vec::<Node>::new());
+        let mut json = Json::from(Vec::<Node>::new());
         let mut index: usize = 0;
 
         while index < content.len() {
@@ -419,11 +427,11 @@ impl Json {
                         "\n{}\"{}\" : {},",
                         indent,
                         node.label,
-                        Json::renderList(nodeContent.toList().unwrap()).as_str()
+                        Json::renderList(&nodeContent.toList().unwrap()).as_str()
                     ).as_str()
                 );
             } else if nodeContent.toJson() != None {
-                let subContent = Json::renderJson(node.content.toJson().unwrap(), indent.clone().add("\t").to_string());
+                let subContent = Json::renderJson(&node.content.toJson().unwrap(), indent.clone().add("\t").to_string());
                 content = content.add(format!("\n{}\"{}\" : {}", indent, node.label, subContent).as_str());
                 content = content[0..content.len()-1].to_string().add(&indent).add("},");
 
@@ -456,7 +464,7 @@ impl Json {
                 content = content.add(format!("{}, ", element.toUsize().unwrap()).as_str());
 
             } else if element.toJson() != None {
-                let subContent = Json::renderJson(element.toJson().unwrap(), String::from("\t"));
+                let subContent = Json::renderJson(&element.toJson().unwrap(), String::from("\t"));
 
                 content = content.add(format!("{}, ", subContent).as_str());
                 content = content[0..content.len()-1].to_string().add("}, ");

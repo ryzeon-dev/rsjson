@@ -209,6 +209,11 @@ impl Json {
         return json;
     }
 
+    /// Returns a vector containing all nodes in the Json object
+    pub fn getAllNodes(&self) -> Vec<Node> {
+        return self.nodes.clone();
+    }
+
     /// Generates a `Json` struct containing the data provided as a string
     pub fn fromString(string: String) -> Json {
         let content = string.clone();
@@ -542,7 +547,7 @@ mod tests {
     #[test]
     fn test() {
         let json = Json::fromFile(String::from("/etc/rs-raid/config.json"));
-        println!("{:?}", json.get("disks".to_string()).unwrap().toList());
+        println!("{:?}", json.getAllNodes());
 
         assert_eq!(0, 0);
     }

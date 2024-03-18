@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.2.0";
+//! rsjson = "0.2.1";
 //! ```
 //! or run
 //! ```bash
@@ -247,11 +247,11 @@ impl Json {
                 index = newIndex;
 
                 let newIndex = Json::skipNull(&content, index);
-                if newIndex == (content.len() - 1) {
+                if newIndex >= (content.len() - 1) {
                     break
 
                 } else {
-                    return Err(String::from("Json format error"));
+                    return Err(String::from("Json format errora"));
                 }
             }
         }
@@ -289,7 +289,7 @@ impl Json {
                     );
 
                 } else {
-                    index += 1;
+                    index = tempIndex + 1;
                 }
 
             } else if &content[index..index+1] == "}" {
@@ -605,15 +605,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let json = match Json::fromFile(String::from("newFile.json")) {
-            Err(why) => {
-                println!("{}", why);
-                std::process::exit(1);
-            },
-            Ok(json) => json
-        };
-
-        println!("{:?}", json.getAllNodes());
+        let json2 = Json::fromString("{\"status\":\"success\",\"country\":\"The Netherlands\",\"countryCode\":\"NL\",\"region\":\"NH\",\"regionName\":\"North Holland\",\"city\":\"Amsterdam\",\"zip\":\"1012\",\"lat\":52.3676,\"lon\":4.90414,\"timezone\":\"Europe/Amsterdam\",\"isp\":\"Surf B.V.\",\"org\":\"Nothing to hide\",\"as\":\"AS1101 SURF B.V.\",\"query\":\"192.42.116.183\"}".to_string()).unwrap();
+        println!("{:?}",json2.getAllNodes());
         assert_eq!(0, 0);
     }
 }

@@ -4,7 +4,7 @@
 ---
 [crates.io repository](https://crates.io/crates/rsjson)
 
-[docs.rs documentation]()
+[docs.rs documentation](https://docs.rs/rsjson/latest/rsjson/)
 
 ---
 # Installation
@@ -12,7 +12,7 @@
 ```toml
 ...
 [dependencies]
-rsjson = "0.1.5"
+rsjson = "0.2.0"
 ```
 - or run the following command in terminal:
 ```bash

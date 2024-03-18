@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.1.4";
+//! rsjson = "0.2.0";
 //! ```
 //! or run
 //! ```bash
@@ -19,8 +19,16 @@
 //! # Code example
 //! - read and parse a json file
 //! ```rust
-//! let json = rsjson::Json::fromFile("/path/to/file.json".to_string());
+//! let json: Result<rsjson::Json, String> = rsjson::Json::fromFile("/path/to/file.json".to_string());
 //! ```
+//!
+//! - read and parse a json structure from a string
+//! ```rust
+//! let json: Result<rsjson::Json, String> = rsjson::Json::fromString(String::from("{\"key\":\"value\"}"));
+//! ```
+//! - in both previous cases, remeber to handle the error (e.g. using `match`) or to call `unwrap()`
+//!
+//!
 //!
 //! - create an empty json instance
 //! ```rust
@@ -177,10 +185,10 @@ impl Json {
     }
 
     /// Reads the specified file and returns a `Json` struct containing the red data
-    pub fn fromFile(filePath: String) -> Json {
+    pub fn fromFile(filePath: String) -> Result<Json, String> {
         let content = match fs::read_to_string(path::Path::new(filePath.as_str())) {
-            Err(why) => {
-                panic!("{}", why)
+            Err(_) => {
+                return Err(String::from("Unreadable file"));
             },
             Ok(fileContent) => fileContent
         };
@@ -192,21 +200,25 @@ impl Json {
             index = Json::skipNull(&content, index);
 
             if &content[index..index + 1] == "{" {
-                let (newIndex, res) = Json::json(&content, index);
+                let (newIndex, res, error) = Json::json(&content, index);
 
-                json = res;
+                if error {
+                    return Err(String::from("Json format error"));
+                }
+
+                json = res.unwrap();
                 index = newIndex;
 
                 let newIndex = Json::skipNull(&content, index);
-                if newIndex == (content.len() - 1) || &content[newIndex..newIndex + 1] == "}" {
+                if newIndex >= (content.len() - 1) {
                     break
                 } else {
-                    panic!("Json format error");
+                    return Err(String::from("Json format error"));
                 }
             }
         }
 
-        return json;
+        return Ok(json);
     }
 
     /// Returns a vector containing all nodes in the Json object
@@ -215,7 +227,7 @@ impl Json {
     }
 
     /// Generates a `Json` struct containing the data provided as a string
-    pub fn fromString(string: String) -> Json {
+    pub fn fromString(string: String) -> Result<Json, String> {
         let content = string.clone();
 
         let mut json = Json::from(Vec::<Node>::new());
@@ -225,9 +237,13 @@ impl Json {
             index = Json::skipNull(&content, index);
 
             if &content[index..index + 1] == "{" {
-                let (newIndex, res) = Json::json(&content, index);
+                let (newIndex, res, error) = Json::json(&content, index);
 
-                json = res;
+                if error {
+                    return Err(String::from("Json format error"));
+                }
+
+                json = res.unwrap();
                 index = newIndex;
 
                 let newIndex = Json::skipNull(&content, index);
@@ -235,15 +251,15 @@ impl Json {
                     break
 
                 } else {
-                    panic!("Json format error");
+                    return Err(String::from("Json format error"));
                 }
             }
         }
 
-        return json;
+        return Ok(json);
     }
 
-    fn json(content: &String, startIndex: usize) -> (usize, Json) {
+    fn json(content: &String, startIndex: usize) -> (usize, Option<Json>, bool) {
         let mut index = startIndex + 1;
         let mut nodes = Vec::<Node>::new();
 
@@ -251,10 +267,14 @@ impl Json {
             index = Json::skipNull(content, index);
 
             if &content[index..index+1] == "\"" {
-                let (newIndex, node) = Json::node(content, index);
+                let (newIndex, node, error) = Json::node(content, index);
+
+                if error {
+                    return (index, None, true);
+                }
 
                 index = newIndex + 1;
-                nodes.push(node);
+                nodes.push(node.unwrap());
 
                 index = Json::skipNull(content, index);
 
@@ -262,7 +282,12 @@ impl Json {
                 let tempIndex = Json::skipNull(content, index + 1);
 
                 if &content[tempIndex..tempIndex+1] == "{" {
-                    panic!("Json format error");
+                    return (
+                        index,
+                        None,
+                        true
+                    );
+
                 } else {
                     index += 1;
                 }
@@ -274,13 +299,12 @@ impl Json {
 
         (
             index,
-            Json {
-                nodes: nodes
-            }
+            Some(Json { nodes: nodes }),
+            false
         )
     }
 
-    fn node(content: &String, startIndex: usize) -> (usize, Node) {
+    fn node(content: &String, startIndex: usize) -> (usize, Option<Node>, bool) {
         let mut label: String = String::new();
         let mut index = startIndex + 1;
 
@@ -293,21 +317,33 @@ impl Json {
         index = Json::skipNull(content, index);
 
         if &content[index..index+1] != ":" {
-            panic!("Json format error");
+            return (
+                index,
+                None,
+                true
+            );
         }
 
         index += 1;
         index = Json::skipNull(content, index);
 
-        let (newIndex, content) = Json::contentElement(content, index);
+        let (newIndex, content, error) = Json::contentElement(content, index);
 
-        (newIndex, Node{
-            label: label,
-            content: content
-        })
+        if error {
+            return (index, None, true);
+        }
+
+        (
+            newIndex,
+             Some(Node{
+                label: label,
+                content: content.unwrap()
+             }),
+            false
+        )
     }
 
-    fn contentElement(content: &String, startIndex: usize) -> (usize, NodeContent) {
+    fn contentElement(content: &String, startIndex: usize) -> (usize, Option<NodeContent>, bool) {
         let mut index = startIndex;
 
         index = Json::skipNull(content, index);
@@ -316,46 +352,64 @@ impl Json {
             let mut nodeContent: String = String::new();
             index += 1;
 
-            while &content[index..index+1] != "\"" {
+            while index < content.len() && &content[index..index+1] != "\"" {
                 nodeContent = nodeContent.add(&content[index..index+1]);
                 index += 1;
             }
 
-            (index+1, NodeContent::String(nodeContent))
+            if index >= content.len() {
+                return (index, None, true);
+            }
+
+            (index+1, Some(NodeContent::String(nodeContent)), false)
 
         } else if &content[index..index+1] == "{" {
-            let (newIndex, nodeContent) = Json::json(content, index);
-            (newIndex, NodeContent::Json(nodeContent))
+            let (newIndex, nodeContent, error) = Json::json(content, index);
+
+            if error {
+                return (index, None, true);
+            }
+
+            (newIndex, Some(NodeContent::Json(nodeContent.unwrap())), false)
 
         } else if &content[index..index+1] == "[" {
-            let (newIndex, list) = Json::list(content, index);
-            (newIndex, NodeContent::List(list))
+            let (newIndex, list, error) = Json::list(content, index);
+
+            if error {
+                return (index, None, true);
+            }
+
+            (newIndex, Some(NodeContent::List(list.unwrap())), false)
 
         } else if  index + 4 < content.len() && &content[index..index+4] == "true" {
-            (index+4, NodeContent::Bool(true))
+            (index+4, Some(NodeContent::Bool(true)), false)
 
         } else if index + 5 < content.len() && &content[index..index+5] == "false" {
-            (index+5, NodeContent::Bool(false))
+            (index+5, Some(NodeContent::Bool(false)), false)
 
         } else if index + 4 < content.len() && &content[index..index+4] == "null" {
-            (index+4, NodeContent::Null(None))
+            (index+4, Some(NodeContent::Null(None)), false)
 
         } else if DIGITS.contains(&&content[index..index+1]) {
             let mut number: String = String::new();
 
-            while DIGITS.contains(&&content[index..index+1]) {
+            while index < content.len() && DIGITS.contains(&&content[index..index+1]) {
                 number = number.add(&content[index..index+1]);
                 index += 1;
             }
 
+            if index >= content.len() {
+                return (index, None, true);
+            }
+
             if number.contains(".") {
-                (index, NodeContent::Float(number.parse::<f32>().unwrap()))
+                (index, Some(NodeContent::Float(number.parse::<f32>().unwrap())), false)
 
             } else {
-                (index, NodeContent::Int(number.parse::<usize>().unwrap()))
+                (index, Some(NodeContent::Int(number.parse::<usize>().unwrap())), false)
             }
         } else {
-            panic!("Json format error");
+            return (index, None, true);
         }
     }
 
@@ -369,15 +423,20 @@ impl Json {
         return index;
     }
 
-    fn list(content: &String, startIndex: usize) -> (usize, Vec<NodeContent>) {
+    fn list(content: &String, startIndex: usize) -> (usize, Option<Vec<NodeContent>>, bool) {
         let mut list = Vec::<NodeContent>::new();
         let mut index = startIndex + 1;
 
         while &content[index..index+1] != "]" {
-            let (newIndex, element) = Json::contentElement(content, index);
-            list.push(element);
+            let (newIndex, element, error) = Json::contentElement(content, index);
 
+            if error {
+                return (index, None, true);
+            }
+
+            list.push(element.unwrap());
             index = Json::skipNull(content, newIndex);
+
             if &content[index..index+1] != "," {
 
                 if &content[index..index+1] == "]" {
@@ -392,7 +451,7 @@ impl Json {
             }
         }
 
-        (index, list)
+        (index, Some(list), false)
     }
 
     /// Returns the value associated to the node with the specified label
@@ -546,9 +605,15 @@ mod tests {
 
     #[test]
     fn test() {
-        let json = Json::fromFile(String::from("/etc/rs-raid/config.json"));
-        println!("{:?}", json.getAllNodes());
+        let json = match Json::fromFile(String::from("newFile.json")) {
+            Err(why) => {
+                println!("{}", why);
+                std::process::exit(1);
+            },
+            Ok(json) => json
+        };
 
+        println!("{:?}", json.getAllNodes());
         assert_eq!(0, 0);
     }
 }

@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.2.1";
+//! rsjson = "0.2.2";
 //! ```
 //! or run
 //! ```bash
@@ -190,7 +190,7 @@ impl Json {
             Err(_) => {
                 return Err(String::from("Unreadable file"));
             },
-            Ok(fileContent) => fileContent
+            Ok(fileContent) => fileContent.trim().to_string()
         };
 
         let mut json = Json::from(Vec::<Node>::new());
@@ -228,7 +228,7 @@ impl Json {
 
     /// Generates a `Json` struct containing the data provided as a string
     pub fn fromString(string: String) -> Result<Json, String> {
-        let content = string.clone();
+        let content = string.clone().trim().to_string();
 
         let mut json = Json::from(Vec::<Node>::new());
         let mut index: usize = 0;
@@ -251,7 +251,7 @@ impl Json {
                     break
 
                 } else {
-                    return Err(String::from("Json format errora"));
+                    return Err(String::from("Json format error"));
                 }
             }
         }
@@ -605,7 +605,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let json2 = Json::fromString("{\"status\":\"success\",\"country\":\"The Netherlands\",\"countryCode\":\"NL\",\"region\":\"NH\",\"regionName\":\"North Holland\",\"city\":\"Amsterdam\",\"zip\":\"1012\",\"lat\":52.3676,\"lon\":4.90414,\"timezone\":\"Europe/Amsterdam\",\"isp\":\"Surf B.V.\",\"org\":\"Nothing to hide\",\"as\":\"AS1101 SURF B.V.\",\"query\":\"192.42.116.183\"}".to_string()).unwrap();
+        let json2 = Json::fromFile("redirects.json".to_string()).unwrap();
         println!("{:?}",json2.getAllNodes());
         assert_eq!(0, 0);
     }

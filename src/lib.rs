@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.2.1";
+//! rsjson = "0.3.0";
 //! ```
 //! or run
 //! ```bash
@@ -19,14 +19,14 @@
 //! # Code example
 //! - read and parse a json file
 //! ```rust
-//! let json: Result<rsjson::Json, String> = rsjson::Json::fromFile("/path/to/file.json".to_string());
+//! let json: Result<rsjson::Json, String> = rsjson::Json::fromFile("/path/to/file.json");
 //! ```
 //!
 //! - read and parse a json structure from a string
 //! ```rust
-//! let json: Result<rsjson::Json, String> = rsjson::Json::fromString(String::from("{\"key\":\"value\"}"));
+//! let json: Result<rsjson::Json, String> = rsjson::Json::fromString("{\"key\":\"value\"}");
 //! ```
-//! - in both previous cases, remeber to handle the error (e.g. using `match`) or to call `unwrap()`
+//! - in both previous cases, remeber to handle the eventual error (e.g. using `match`) or to call `unwrap()`
 //!
 //!
 //!
@@ -39,7 +39,7 @@
 //! ```rust
 //! json.addNode(
 //!     rsjson::Node::new(
-//!         String::from("nodeLabel"),
+//!         "nodeLabel",
 //!         rsjson::NodeContent::Int(32)
 //!     )
 //! );
@@ -48,15 +48,15 @@
 //! - edit a node's label
 //! ```rust
 //! json.editNode(
-//!     String::from("nodeLabel"),
-//!     String::from("newNodeLabel")
+//!     "nodeLabel",
+//!     "newNodeLabel"
 //! );
 //! ```
 //!
 //! - edit a node's content
 //! ```rust
 //! json.editContent(
-//!     String::from("nodeLabel"),
+//!     "nodeLabel",
 //!     rsjson::NodeContent::Bool(true)
 //! );
 //! ```
@@ -64,35 +64,174 @@
 //! - remove a node
 //! ```rust
 //! json.removeNode(
-//!     String::from("nodeLabel")
+//!     "nodeLabel"
 //! );
 //! ```
 
 #![allow(non_snake_case)]
-#![allow(dead_code)]
 
-use std::fmt::Debug;
-use std::fs;
+use std::{fs, path};
 use std::ops::Add;
-use std::path;
 
 const DIGITS: [&str; 11] = [
     "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "."
 ];
 
-/// The enum implementation contains the various types of elements that can be contained in a json file
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
+enum Token {
+    String(String),
+    Int(usize),
+    Float(f32),
+    OpenBrace,
+    CloseBrace,
+    OpenBracket,
+    CloseBracket,
+    Colon,
+    Comma,
+    Bool(bool),
+    Null
+}
+
+impl Token {
+    fn toString(&self) -> String {
+        match self {
+            Token::String(string) => string.clone(),
+            _ => String::new()
+        }
+    }
+}
+
+struct Parser {
+    tokens: Vec<Token>,
+    index: usize,
+    text: String ,
+    len: usize
+}
+
+impl Parser {
+    fn new(text: String) -> Parser {
+        return Parser {
+            tokens: Vec::<Token>::new(),
+            index: 0_usize,
+            len: (&text).len(),
+            text: text
+        }
+    }
+
+    fn get(&mut self) -> String {
+        self.text[self.index..self.index + 1].to_string()
+    }
+
+    fn checkNotEnd(&self) -> bool {
+        self.index != self.len
+    }
+
+    fn parse(&mut self) -> bool {
+        self.skipNull();
+        while self.checkNotEnd() {
+            let current = self.get();
+            if current == "\"" {
+                self.index += 1;
+                let mut value = String::new();
+
+                while self.checkNotEnd() && self.get() != "\"" {
+                    value += self.get().as_str();
+                    self.index += 1;
+                }
+
+                if ! self.checkNotEnd() {
+                    return true;
+                }
+                self.index += 1;
+
+                self.tokens.push(Token::String(value));
+
+            } else if self.get() == ":" {
+                self.tokens.push(Token::Colon);
+                self.index += 1;
+
+            } else if self.get() == "," {
+                self.tokens.push(Token::Comma);
+                self.index += 1;
+
+            } else if self.get() == "{" {
+                self.tokens.push(Token::OpenBrace);
+                self.index += 1;
+
+            } else if self.get() == "}" {
+                self.tokens.push(Token::CloseBrace);
+                self.index += 1;
+
+            } else if self.get() == "[" {
+                self.tokens.push(Token::OpenBracket);
+                self.index += 1;
+
+            } else if self.get() == "]" {
+                self.tokens.push(Token::CloseBracket);
+                self.index += 1;
+
+            } else if DIGITS.contains(&self.get().as_str()) {
+                let mut value = String::new();
+
+                while self.checkNotEnd() && DIGITS.contains(&self.get().as_str()) {
+                    value += self.get().as_str();
+                    self.index += 1;
+                }
+
+                if ! self.checkNotEnd() {
+                    return true;
+                }
+
+                if value.contains(".") {
+                    self.tokens.push(Token::Float(value.parse::<f32>().unwrap()))
+
+                } else {
+                    self.tokens.push(Token::Int(value.parse::<usize>().unwrap()))
+                }
+
+            } else if self.get() == "t" || self.get() == "f" || self.get() == "n" {
+                if self.len - self.index - 4 > 0 && &self.text[self.index..self.index + 4] == "true" {
+                    self.tokens.push(Token::Bool(true));
+                    self.index += 4;
+
+                } else if self.len - self.index - 4 > 0 && &self.text[self.index..self.index + 4] == "null" {
+                    self.tokens.push(Token::Null);
+                    self.index += 4;
+
+                } else if self.len - self.index - 5 > 0 && &self.text[self.index..self.index + 5] == "false" {
+                    self.tokens.push(Token::Bool(false));
+                    self.index += 5;
+
+                } else {
+                    return true
+                }
+            }
+            self.skipNull();
+        }
+
+        false
+    }
+
+    fn skipNull(&mut self) {
+        let skip = [" ", "\t", "\n"];
+
+        while self.index < self.len && skip.contains(&&self.text[self.index..self.index + 1]) {
+            self.index += 1;
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum NodeContent {
     String(String),
     Int(usize),
-    Bool(bool),
     Float(f32),
-    Json(Json),
+    Bool(bool),
     List(Vec<NodeContent>),
-    Null(Option<u8>)
+    Json(Json),
+    Null
 }
 
-/// Each method is associated with a type in `NodeContent`
 impl NodeContent {
     pub fn toString(&self) -> Option<String> {
         match self {
@@ -141,84 +280,229 @@ impl NodeContent {
     }
 }
 
-/// Data structure containig label and value for a node in the json structure
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Node {
     label: String,
-    content: NodeContent,
+    content: NodeContent
 }
 
 impl Node {
-    pub fn new(label: String, content: NodeContent) -> Node {
-        return Node {
-            label: label,
-            content: content
-        }
-    }
-
-    pub fn label(&self) -> String {
+    pub fn getLabel(&self) -> String {
         return self.label.clone();
     }
 
-    pub fn content(&self) -> NodeContent {
+    pub fn getContent(&self) -> NodeContent {
         return self.content.clone();
     }
 }
 
-/// Contains the vector of nodes contained in the json file
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Json {
     nodes: Vec<Node>
 }
 
 impl Json {
-    pub fn new() -> Json {
-        Json {
-            nodes: Vec::<Node>::new()
+    /// Reads the file at `filePath` and returns a Json struct corresponding to its content
+    pub fn fromFile<T: ToString>(filePath: T) -> Result<Json, String> {
+        match std::fs::read_to_string(filePath.to_string()) {
+            Err(why) => Err(format!("Failed because: {why}")),
+            Ok(content) => Json::fromString(content)
         }
     }
 
-    pub fn from(nodes: Vec<Node>) -> Json {
-        Json {
-            nodes: nodes
+    /// Generates a Json struct corresponding to the given input string
+    pub fn fromString<T: ToString>(text: T) -> Result<Json, String> {
+        let mut parser = Parser::new(text.to_string());
+        let error = parser.parse();
+
+        if error {
+            return Err(String::from("Json format error"));
         }
+
+        let mut tokens = parser.tokens;
+
+        if tokens.get(0).unwrap() != &Token::OpenBrace {
+            return Err(String::from("Json format error: missing opening curly bracket"));
+        }
+
+        let index = 1_usize;
+
+        let (_, json, error) = Self::json(&tokens, index);
+        if error {
+            return Err(String::from("Json format error"));
+        }
+
+        return Ok(json.unwrap())
     }
 
-    /// Reads the specified file and returns a `Json` struct containing the red data
-    pub fn fromFile(filePath: String) -> Result<Json, String> {
-        let content = match fs::read_to_string(path::Path::new(filePath.as_str())) {
-            Err(_) => {
-                return Err(String::from("Unreadable file"));
+    fn json(tokens: &Vec<Token>, startIndex: usize) -> (usize, Option<Json>, bool) {
+        let mut index = startIndex;
+        let mut nodes = Vec::<Node>::new();
+
+        while index < tokens.len() {
+            match tokens.get(index).unwrap() {
+                Token::String(_) => {
+                    let (newIndex, node, error) = Self::node(&tokens, index);
+
+                    if error {
+                        return (index, None, true)
+                    }
+
+                    index = newIndex;
+                    if tokens.get(index).unwrap() != &Token::CloseBrace && tokens.get(index).unwrap() != &Token::Comma {
+                        return (index, None, true)
+
+                    } else if tokens.get(index).unwrap() == &Token::Comma {
+                        index += 1;
+                    }
+
+                    nodes.push(node.unwrap());
+                },
+                Token::CloseBrace => {
+                    break
+                }
+                _ => return (index, None, true)
+            }
+        }
+        (index, Some(Json{nodes: nodes}), false)
+    }
+
+    fn list(tokens: &Vec<Token>, startIndex: usize) -> (usize, Option<NodeContent>, bool) {
+        let mut index = startIndex;
+        let mut content = Vec::<NodeContent>::new();
+
+        while tokens.get(index).unwrap() != &Token::CloseBracket {
+            match tokens.get(index).unwrap() {
+                Token::String(string) => {
+                    content.push(NodeContent::String(string.to_owned()));
+                    index += 1;
+                },
+
+                Token::Int(int) => {
+                    content.push(NodeContent::Int(int.to_owned()));
+                    index += 1;
+                },
+
+                Token::Float(float) => {
+                    content.push(NodeContent::Float(float.to_owned()));
+                    index += 1;
+                },
+
+                Token::Null => {
+                    content.push(NodeContent::Null);
+                    index += 1;
+                },
+
+                Token::Bool(bool) => {
+                    content.push(NodeContent::Bool(bool.to_owned()));
+                    index += 1;
+                },
+
+                Token::OpenBrace => {
+                    let (newIndex, json, error) = Self::json(tokens, index + 1);
+
+                    if error {
+                        return (index, None, true)
+                    }
+
+                    index = newIndex + 1;
+                    content.push(NodeContent::Json(json.unwrap()));
+                },
+
+                Token::OpenBracket => {
+                    let (newIndex, list, error) = Self::list(tokens, index);
+
+                    if error {
+                        return (index, None, true)
+                    }
+
+                    index = newIndex;
+                    content.push(list.unwrap())
+                },
+
+                Token::Comma => {
+                    index += 1;
+                },
+
+                _ => {
+                    return (index, None, true)
+                }
+
+
+            }
+        }
+        if tokens.get(index-1).unwrap() == &Token::Comma {
+            return (index, None, true);
+        }
+
+        (index, Some(NodeContent::List(content)), false)
+    }
+
+    fn node(tokens: &Vec<Token>, startIndex: usize) -> (usize, Option<Node>, bool) {
+        let mut index = startIndex;
+        let label = tokens.get(index).unwrap().toString();
+
+        index += 1;
+        if tokens.get(index).unwrap() != &Token::Colon {
+            return (index, None, true)
+        }
+        index += 1;
+
+        let mut content = NodeContent::Null;
+        match tokens.get(index).unwrap() {
+            Token::Null => {
+                content = NodeContent::Null;
+                index += 1;
             },
-            Ok(fileContent) => fileContent
-        };
 
-        let mut json = Json::from(Vec::<Node>::new());
-        let mut index: usize = 0;
+            Token::Int(int) => {
+                content = NodeContent::Int(int.to_owned());
+                index += 1;
+            },
 
-        while index < content.len() {
-            index = Json::skipNull(&content, index);
+            Token::Float(float) => {
+                content = NodeContent::Float(float.to_owned());
+                index += 1;
+            },
 
-            if &content[index..index + 1] == "{" {
-                let (newIndex, res, error) = Json::json(&content, index);
+            Token::Bool(bool) => {
+                content = NodeContent::Bool(bool.to_owned());
+                index += 1;
+            },
+
+            Token::String(string) => {
+                content = NodeContent::String(string.to_owned());
+                index += 1;
+            },
+
+            Token::OpenBrace => {
+                index += 1;
+                let (newIndex, nodeContent, error) = Self::json(tokens, index);
+                if error {
+                    return (index, None, true)
+                }
+                index = newIndex + 1;
+                content = NodeContent::Json(nodeContent.unwrap());
+            },
+
+            Token::OpenBracket => {
+                index += 1;
+                let (newIndex, list, error) = Self::list(tokens, index);
 
                 if error {
-                    return Err(String::from("Json format error"));
+                    return (index, None, true);
                 }
 
-                json = res.unwrap();
-                index = newIndex;
+                index = newIndex + 1;
+                content = list.unwrap();
+            }
 
-                let newIndex = Json::skipNull(&content, index);
-                if newIndex >= (content.len() - 1) {
-                    break
-                } else {
-                    return Err(String::from("Json format error"));
-                }
+            _ => {
+                return (index, None, true)
             }
         }
 
-        return Ok(json);
+        (index, Some(Node{label: label, content: content}), false)
     }
 
     /// Returns a vector containing all nodes in the Json object
@@ -226,242 +510,24 @@ impl Json {
         return self.nodes.clone();
     }
 
-    /// Generates a `Json` struct containing the data provided as a string
-    pub fn fromString(string: String) -> Result<Json, String> {
-        let content = string.clone();
-
-        let mut json = Json::from(Vec::<Node>::new());
-        let mut index: usize = 0;
-
-        while index < content.len() {
-            index = Json::skipNull(&content, index);
-
-            if &content[index..index + 1] == "{" {
-                let (newIndex, res, error) = Json::json(&content, index);
-
-                if error {
-                    return Err(String::from("Json format error"));
-                }
-
-                json = res.unwrap();
-                index = newIndex;
-
-                let newIndex = Json::skipNull(&content, index);
-                if newIndex >= (content.len() - 1) {
-                    break
-
-                } else {
-                    return Err(String::from("Json format errora"));
-                }
-            }
-        }
-
-        return Ok(json);
-    }
-
-    fn json(content: &String, startIndex: usize) -> (usize, Option<Json>, bool) {
-        let mut index = startIndex + 1;
-        let mut nodes = Vec::<Node>::new();
-
-        while index < content.len() {
-            index = Json::skipNull(content, index);
-
-            if &content[index..index+1] == "\"" {
-                let (newIndex, node, error) = Json::node(content, index);
-
-                if error {
-                    return (index, None, true);
-                }
-
-                index = newIndex + 1;
-                nodes.push(node.unwrap());
-
-                index = Json::skipNull(content, index);
-
-            } else if &content[index..index+1] == "," {
-                let tempIndex = Json::skipNull(content, index + 1);
-
-                if &content[tempIndex..tempIndex+1] == "{" {
-                    return (
-                        index,
-                        None,
-                        true
-                    );
-
-                } else {
-                    index = tempIndex + 1;
-                }
-
-            } else if &content[index..index+1] == "}" {
-                break
-            }
-        }
-
-        (
-            index,
-            Some(Json { nodes: nodes }),
-            false
-        )
-    }
-
-    fn node(content: &String, startIndex: usize) -> (usize, Option<Node>, bool) {
-        let mut label: String = String::new();
-        let mut index = startIndex + 1;
-
-        while &content[index..index+1] != "\"" {
-            label = label.add(&content[index..index+1]);
-            index += 1;
-        }
-
-        index += 1;
-        index = Json::skipNull(content, index);
-
-        if &content[index..index+1] != ":" {
-            return (
-                index,
-                None,
-                true
-            );
-        }
-
-        index += 1;
-        index = Json::skipNull(content, index);
-
-        let (newIndex, content, error) = Json::contentElement(content, index);
-
-        if error {
-            return (index, None, true);
-        }
-
-        (
-            newIndex,
-             Some(Node{
-                label: label,
-                content: content.unwrap()
-             }),
-            false
-        )
-    }
-
-    fn contentElement(content: &String, startIndex: usize) -> (usize, Option<NodeContent>, bool) {
-        let mut index = startIndex;
-
-        index = Json::skipNull(content, index);
-
-        if &content[index..index+1] == "\"" {
-            let mut nodeContent: String = String::new();
-            index += 1;
-
-            while index < content.len() && &content[index..index+1] != "\"" {
-                nodeContent = nodeContent.add(&content[index..index+1]);
-                index += 1;
-            }
-
-            if index >= content.len() {
-                return (index, None, true);
-            }
-
-            (index+1, Some(NodeContent::String(nodeContent)), false)
-
-        } else if &content[index..index+1] == "{" {
-            let (newIndex, nodeContent, error) = Json::json(content, index);
-
-            if error {
-                return (index, None, true);
-            }
-
-            (newIndex, Some(NodeContent::Json(nodeContent.unwrap())), false)
-
-        } else if &content[index..index+1] == "[" {
-            let (newIndex, list, error) = Json::list(content, index);
-
-            if error {
-                return (index, None, true);
-            }
-
-            (newIndex, Some(NodeContent::List(list.unwrap())), false)
-
-        } else if  index + 4 < content.len() && &content[index..index+4] == "true" {
-            (index+4, Some(NodeContent::Bool(true)), false)
-
-        } else if index + 5 < content.len() && &content[index..index+5] == "false" {
-            (index+5, Some(NodeContent::Bool(false)), false)
-
-        } else if index + 4 < content.len() && &content[index..index+4] == "null" {
-            (index+4, Some(NodeContent::Null(None)), false)
-
-        } else if DIGITS.contains(&&content[index..index+1]) {
-            let mut number: String = String::new();
-
-            while index < content.len() && DIGITS.contains(&&content[index..index+1]) {
-                number = number.add(&content[index..index+1]);
-                index += 1;
-            }
-
-            if index >= content.len() {
-                return (index, None, true);
-            }
-
-            if number.contains(".") {
-                (index, Some(NodeContent::Float(number.parse::<f32>().unwrap())), false)
-
-            } else {
-                (index, Some(NodeContent::Int(number.parse::<usize>().unwrap())), false)
-            }
-        } else {
-            return (index, None, true);
-        }
-    }
-
-    fn skipNull(content: &String, startIndex: usize) -> usize {
-        let mut index = startIndex;
-
-        while index < content.len() && (&content[index..index+1] == " " || &content[index..index+1] == "\t" || &content[index..index+1] == "\n") {
-            index += 1;
-        }
-
-        return index;
-    }
-
-    fn list(content: &String, startIndex: usize) -> (usize, Option<Vec<NodeContent>>, bool) {
-        let mut list = Vec::<NodeContent>::new();
-        let mut index = startIndex + 1;
-
-        while &content[index..index+1] != "]" {
-            let (newIndex, element, error) = Json::contentElement(content, index);
-
-            if error {
-                return (index, None, true);
-            }
-
-            list.push(element.unwrap());
-            index = Json::skipNull(content, newIndex);
-
-            if &content[index..index+1] != "," {
-
-                if &content[index..index+1] == "]" {
-                    break
-
-                } else {
-                    panic!("Json format error");
-                }
-
-            } else {
-                index += 1;
-            }
-        }
-
-        (index, Some(list), false)
-    }
-
-    /// Returns the value associated to the node with the specified label
-    pub fn get(&self, label: String) -> Option<&NodeContent> {
+    /// Returns the content of the requested node
+    pub fn get<T: ToString>(&self, label: T) -> Option<&NodeContent> {
         for node in &self.nodes {
-            if node.label == label {
+            if node.label == label.to_string() {
                 return Some(&node.content)
             }
         }
 
+        return None;
+    }
+
+    /// Returns the requested node
+    pub fn getNode<T: ToString>(&self, label: T) -> Option<&Node> {
+        for node in &self.nodes {
+            if node.label == label.to_string() {
+                return Some(node);
+            }
+        }
         return None;
     }
 
@@ -542,27 +608,27 @@ impl Json {
         return content;
     }
 
-    /// Writes the content of the `Json` struct into the specified file
-    pub fn writeToFile(&self, fileName: String) -> bool {
+    /// Exports the Json struct into a Json file and writes it into `fileName`
+    pub fn writeToFile<T: ToString>(&self, fileName: T) -> bool {
         let content = Json::renderJson(self, "\t".to_string());
 
-        return match fs::write(path::Path::new(&fileName), content) {
+        return match fs::write(path::Path::new(&fileName.to_string()), content) {
             Err(_) => false,
             Ok(_) => true
         }
     }
 
-    /// Adds a node to the `Json` struct
+    /// Adds a node to the Json struct
     pub fn addNode(&mut self, node: Node) {
         self.nodes.push(node);
     }
 
     /// Changes the label of a node, returns a bool representing the status of the change
-    pub fn changeLabel(&mut self, label: String, newLabel: String) -> bool {
+    pub fn changeLabel<T: ToString>(&mut self, label: T, newLabel: T) -> bool {
         for node in &mut self.nodes {
-            if node.label == label {
+            if node.label == label.to_string() {
 
-                node.label = newLabel.clone();
+                node.label = newLabel.to_string().clone();
                 return true;
             }
         }
@@ -571,9 +637,9 @@ impl Json {
     }
 
     /// Changes the content of a node, returns a bool representing the status of the change
-    pub fn changeContent(&mut self, label: String, content: NodeContent) -> bool {
+    pub fn changeContent<T: ToString>(&mut self, label: T, content: NodeContent) -> bool {
         for node in &mut self.nodes {
-            if node.label == label {
+            if node.label == label.to_string() {
 
                 node.content = content;
                 return true;
@@ -584,11 +650,11 @@ impl Json {
     }
 
     /// Removes a node basing on its label
-    pub fn removeNode(&mut self, label: String) -> bool {
+    pub fn removeNode<T: ToString>(&mut self, label: T) -> bool {
         let mut index: usize = 0;
 
         for node in &self.nodes {
-            if node.label == label {
+            if node.label == label.to_string() {
                 self.nodes.remove(index);
 
                 return true;
@@ -605,8 +671,10 @@ mod tests {
 
     #[test]
     fn test() {
-        let json2 = Json::fromString("{\"status\":\"success\",\"country\":\"The Netherlands\",\"countryCode\":\"NL\",\"region\":\"NH\",\"regionName\":\"North Holland\",\"city\":\"Amsterdam\",\"zip\":\"1012\",\"lat\":52.3676,\"lon\":4.90414,\"timezone\":\"Europe/Amsterdam\",\"isp\":\"Surf B.V.\",\"org\":\"Nothing to hide\",\"as\":\"AS1101 SURF B.V.\",\"query\":\"192.42.116.183\"}".to_string()).unwrap();
-        println!("{:?}",json2.getAllNodes());
+        let text = std::fs::read_to_string("test.json").unwrap();
+        let mut json = Json::fromFile("test.json".to_string());
+
+        println!("{:?}", json.unwrap());
         assert_eq!(0, 0);
     }
 }

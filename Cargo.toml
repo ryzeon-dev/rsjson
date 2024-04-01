@@ -1,8 +1,8 @@
 [package]
 name = "rsjson"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["ryzeon-dev"]
-description = "Json file parser library"
+description = "Json parser library"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/ryzeon-dev/rsjson"

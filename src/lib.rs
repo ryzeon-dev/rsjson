@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.3.2";
+//! rsjson = "0.3.3";
 //! ```
 //! or run
 //! ```bash
@@ -287,7 +287,7 @@ pub struct Node {
 }
 
 impl Node {
-    fn new(label: String, content: NodeContent) -> Node {
+    pub fn new(label: String, content: NodeContent) -> Node {
         Node {
             label: label,
             content: content

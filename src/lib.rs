@@ -68,7 +68,7 @@
 //! );
 //! ```
 
-#![allow(non_snake_case)]
+#![allow(non_snake_case, unused_assignments)]
 
 use std::{fs, path};
 use std::ops::Add;
@@ -325,7 +325,7 @@ impl Json {
             return Err(String::from("Json format error"));
         }
 
-        let mut tokens = parser.tokens;
+        let tokens = parser.tokens;
 
         if tokens.get(0).unwrap() != &Token::OpenBrace {
             return Err(String::from("Json format error: missing opening curly bracket"));

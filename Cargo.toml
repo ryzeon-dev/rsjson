@@ -1,6 +1,6 @@
 [package]
 name = "rsjson"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["ryzeon-dev"]
 description = "Json parser library"
 edition = "2021"

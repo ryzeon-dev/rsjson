@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.3.1";
+//! rsjson = "0.3.2";
 //! ```
 //! or run
 //! ```bash
@@ -287,6 +287,13 @@ pub struct Node {
 }
 
 impl Node {
+    fn new(label: String, content: NodeContent) -> Node {
+        Node {
+            label: label,
+            content: content
+        }
+    }
+
     pub fn getLabel(&self) -> String {
         return self.label.clone();
     }

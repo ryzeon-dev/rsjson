@@ -68,7 +68,7 @@
 //! );
 //! ```
 
-#![allow(non_snake_case, unused_assignments)]
+#![allow(non_snake_case, unused_assignments, dead_code)]
 
 use std::{fs, path};
 use std::ops::Add;

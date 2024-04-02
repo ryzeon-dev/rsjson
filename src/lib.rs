@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.3.0";
+//! rsjson = "0.3.1";
 //! ```
 //! or run
 //! ```bash
@@ -302,6 +302,12 @@ pub struct Json {
 }
 
 impl Json {
+    pub fn new() -> Json {
+        return Json {
+            nodes: Vec::<Node>::new()
+        }
+    }
+
     /// Reads the file at `filePath` and returns a Json struct corresponding to its content
     pub fn fromFile<T: ToString>(filePath: T) -> Result<Json, String> {
         match std::fs::read_to_string(filePath.to_string()) {

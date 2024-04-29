@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.3.3";
+//! rsjson = "0.3.4";
 //! ```
 //! or run
 //! ```bash
@@ -287,9 +287,9 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(label: String, content: NodeContent) -> Node {
+    pub fn new<T: ToString>(label: T, content: NodeContent) -> Node {
         Node {
-            label: label,
+            label: label.to_string(),
             content: content
         }
     }
@@ -587,7 +587,7 @@ impl Json {
         return content;
     }
 
-    fn renderList(list: &Vec<NodeContent>) -> String {
+    fn renderList(list: &Vec<NodeContent>, ) -> String {
         let mut content = String::from("[");
 
         for element in list {
@@ -610,7 +610,6 @@ impl Json {
                 let subContent = Json::renderJson(&element.toJson().unwrap(), String::from("\t"));
 
                 content = content.add(format!("{}, ", subContent).as_str());
-                content = content[0..content.len()-1].to_string().add("}, ");
 
             } else {
                 content = content.add("null, ");

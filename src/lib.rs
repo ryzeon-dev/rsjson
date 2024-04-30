@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.3.4";
+//! rsjson = "0.3.5";
 //! ```
 //! or run
 //! ```bash
@@ -616,7 +616,10 @@ impl Json {
             }
         }
 
-        content = (&content[0..content.len()-2]).to_string().add("]");
+        if content.len() > 2 {
+            content = (&content[0..content.len()-2]).to_string().add("]");
+        }
+
         return content;
     }
 

@@ -12,7 +12,7 @@
 ```toml
 ...
 [dependencies]
-rsjson = "0.3.5"
+rsjson = "0.3.6"
 ```
 - or run the following command in terminal:
 ```bash
@@ -20,7 +20,7 @@ cargo add rsjson
 ```
 
 # Importation
-- include the following line to your code
+- include the following line into your code
 ```rust
 use rsjson;
 ```

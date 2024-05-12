@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.3.5";
+//! rsjson = "0.3.6";
 //! ```
 //! or run
 //! ```bash
@@ -618,6 +618,8 @@ impl Json {
 
         if content.len() > 2 {
             content = (&content[0..content.len()-2]).to_string().add("]");
+        } else {
+            content = content.add("]");
         }
 
         return content;

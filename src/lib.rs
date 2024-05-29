@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.3.6";
+//! rsjson = "0.4.0";
 //! ```
 //! or run
 //! ```bash
@@ -23,8 +23,14 @@
 //! ```
 //!
 //! - read and parse a json structure from a string
+//! - the string can be both "normal" and raw
 //! ```rust
-//! let json: Result<rsjson::Json, String> = rsjson::Json::fromString("{\"key\":\"value\"}");
+//! let json: Result<rsjson::Json, String> = rsjson::json!(
+//!     r#"{
+//!         "key" : "value",
+//!         "second_key" : ["one", "two"]
+//!     }"#
+//! );
 //! ```
 //! - in both previous cases, remeber to handle the eventual error (e.g. using `match`) or to call `unwrap()`
 //!
@@ -323,8 +329,8 @@ impl Json {
         }
     }
 
-    /// Generates a Json struct corresponding to the given input string
-    pub fn fromString<T: ToString>(text: T) -> Result<Json, String> {
+
+    fn fromString<T: ToString>(text: T) -> Result<Json, String> {
         let mut parser = Parser::new(text.to_string());
         let error = parser.parse();
 
@@ -682,16 +688,26 @@ impl Json {
     }
 }
 
+#[macro_export]
+macro_rules! json {
+    ( $string:expr ) => {
+        Json::fromString($string)
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test() {
-        let text = std::fs::read_to_string("test.json").unwrap();
-        let mut json = Json::fromFile("test.json".to_string());
-
-        println!("{:?}", json.unwrap());
+        let mut j = json!(
+            r#"{
+                "a" : "b",
+                "b" : "c"
+            }"#
+        );
+        println!("{:?}", j);
         assert_eq!(0, 0);
     }
 }

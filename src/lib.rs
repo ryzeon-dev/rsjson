@@ -330,7 +330,7 @@ impl Json {
     }
 
 
-    fn fromString<T: ToString>(text: T) -> Result<Json, String> {
+    pub fn fromString<T: ToString>(text: T) -> Result<Json, String> {
         let mut parser = Parser::new(text.to_string());
         let error = parser.parse();
 
@@ -689,7 +689,7 @@ impl Json {
 }
 
 #[macro_export]
-macro_rules! json {
+pub macro_rules! json {
     ( $string:expr ) => {
         Json::fromString($string)
     };
@@ -701,11 +701,10 @@ mod tests {
 
     #[test]
     fn test() {
+        let a = "{\"a\" : \"b\"}";
+
         let mut j = json!(
-            r#"{
-                "a" : "b",
-                "b" : "c"
-            }"#
+            a
         );
         println!("{:?}", j);
         assert_eq!(0, 0);

@@ -689,7 +689,7 @@ impl Json {
 }
 
 #[macro_export]
-pub macro_rules! json {
+macro_rules! json {
     ( $string:expr ) => {
         Json::fromString($string)
     };

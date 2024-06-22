@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.4.0";
+//! rsjson = "0.4.2";
 //! ```
 //! or run
 //! ```bash
@@ -74,10 +74,9 @@
 //! );
 //! ```
 
-#![allow(non_snake_case, unused_assignments, dead_code)]
+#![allow(non_snake_case, unused_assignments)]
 
 use std::{fs, path};
-use std::ops::Add;
 
 const DIGITS: [&str; 11] = [
     "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "."
@@ -329,8 +328,7 @@ impl Json {
         }
     }
 
-
-    pub fn fromString<T: ToString>(text: T) -> Result<Json, String> {
+    fn fromString<T: ToString>(text: T) -> Result<Json, String> {
         let mut parser = Parser::new(text.to_string());
         let error = parser.parse();
 
@@ -550,90 +548,50 @@ impl Json {
         return None;
     }
 
-    fn renderJson(json: &Json, indent: String) -> String {
+    fn renderJson(json: &Json) -> String {
         let mut content = String::from("{");
 
         for node in &json.nodes {
-            let nodeContent = &node.content;
-
-            if nodeContent.toString() != None {
-                content = content.add(format!("\n{}\"{}\" : \"{}\",", indent, node.label, nodeContent.toString().unwrap()).as_str());
-
-            } else if nodeContent.toUsize() != None {
-                content = content.add(format!("\n{}\"{}\" : {},", indent, node.label, nodeContent.toUsize().unwrap()).as_str());
-
-            } else if nodeContent.toFloat() != None {
-                content = content.add(format!("\n{}\"{}\" : {},", indent, node.label, nodeContent.toFloat().unwrap()).as_str());
-
-            } else if nodeContent.toBool() != None {
-                content = content.add(format!("\n{}\"{}\" : {},", indent, node.label, nodeContent.toBool().unwrap()).as_str());
-
-            } else if nodeContent.toUsize() != None {
-                content = content.add(format!("\n{}\"{}\" : {},", indent, node.label, nodeContent.toUsize().unwrap()).as_str());
-            } else if nodeContent.toList() != None {
-                content = content.add(
-                    format!(
-                        "\n{}\"{}\" : {},",
-                        indent,
-                        node.label,
-                        Json::renderList(&nodeContent.toList().unwrap()).as_str()
-                    ).as_str()
-                );
-            } else if nodeContent.toJson() != None {
-                let subContent = Json::renderJson(&node.content.toJson().unwrap(), indent.clone().add("\t").to_string());
-                content = content.add(format!("\n{}\"{}\" : {}", indent, node.label, subContent).as_str());
-                content = content[0..content.len()-1].to_string().add(&indent).add("},");
-
-            } else {
-                content = content.add(format!("\n{}\"{}\" : null,", indent, node.label).as_str());
-            }
+            content = format!("{}\"{}\":{},", content, &node.label, Self::renderContent(&node.content));
         }
 
-        content = content[0..content.len()-1].to_string().add("\n").add("}");
-        return content;
+        if content.len() > 2 {
+            format!("{}{}", content[0..content.len()-1].to_string(), "}")
+
+        } else {
+            format!("{}{}", content, "}")
+        }
     }
 
     fn renderList(list: &Vec<NodeContent>, ) -> String {
         let mut content = String::from("[");
 
-        for element in list {
-            if element.toString() != None {
-                content = content.add(format!("\"{}\", ", element.toString().unwrap()).as_str());
-
-            } else if element.toUsize() != None {
-                content = content.add(format!("{}, ", element.toUsize().unwrap()).as_str());
-
-            } else if element.toFloat() != None {
-                content = content.add(format!("{}, ", element.toFloat().unwrap()).as_str());
-
-            } else if element.toBool() != None {
-                content = content.add(format!("{}, ", element.toBool().unwrap()).as_str());
-
-            } else if element.toUsize() != None {
-                content = content.add(format!("{}, ", element.toUsize().unwrap()).as_str());
-
-            } else if element.toJson() != None {
-                let subContent = Json::renderJson(&element.toJson().unwrap(), String::from("\t"));
-
-                content = content.add(format!("{}, ", subContent).as_str());
-
-            } else {
-                content = content.add("null, ");
-            }
+        for node in list {
+            content = format!("{}{},", content, Self::renderContent(&node))
         }
 
-        if content.len() > 2 {
-            content = (&content[0..content.len()-2]).to_string().add("]");
+        if content.len() > 1 {
+            format!("{}{}", content[0..content.len()-1].to_string(), "]")
         } else {
-            content = content.add("]");
+            String::from("[]")
         }
+    }
 
-        return content;
+    pub fn renderContent(object: &NodeContent) -> String {
+        match object {
+            NodeContent::Bool(bool) => if *bool { String::from("true") } else { String::from("false") },
+            NodeContent::Float(float) => format!("{}", float),
+            NodeContent::Int(int) => format!("{}", int),
+            NodeContent::Null => String::from("null"),
+            NodeContent::String(string) => format!("\"{}\"", string),
+            NodeContent::List(list) => Self::renderList(&list),
+            NodeContent::Json(json) => Self::renderJson(&json),
+        }
     }
 
     /// Exports the Json struct into a Json file and writes it into `fileName`
     pub fn writeToFile<T: ToString>(&self, fileName: T) -> bool {
-        let content = Json::renderJson(self, "\t".to_string());
+        let content = Json::renderJson(self);
 
         return match fs::write(path::Path::new(&fileName.to_string()), content) {
             Err(_) => false,
@@ -701,12 +659,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let a = "{\"a\" : \"b\"}";
-
-        let mut j = json!(
-            a
-        );
-        println!("{:?}", j);
-        assert_eq!(0, 0);
+        let j = Json::fromFile("./newFile.json");
+        j.unwrap().writeToFile("file.json");
     }
 }

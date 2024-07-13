@@ -328,7 +328,7 @@ impl Json {
         }
     }
 
-    fn fromString<T: ToString>(text: T) -> Result<Json, String> {
+    pub fn fromString<T: ToString>(text: T) -> Result<Json, String> {
         let mut parser = Parser::new(text.to_string());
         let error = parser.parse();
 

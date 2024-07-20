@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.4.2";
+//! rsjson = "0.5.0";
 //! ```
 //! or run
 //! ```bash
@@ -643,6 +643,11 @@ impl Json {
             index += 1;
         }
         return false;
+    }
+
+    /// Converts json to bytes
+    pub fn bytes(&self) -> Vec<u8> {
+        Json::renderJson(self).bytes().collect::<Vec<u8>>()
     }
 }
 

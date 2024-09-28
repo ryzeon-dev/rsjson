@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.5.0";
+//! rsjson = "0.5.1";
 //! ```
 //! or run
 //! ```bash
@@ -597,6 +597,11 @@ impl Json {
             Err(_) => false,
             Ok(_) => true
         }
+    }
+
+    /// Exports the Json struct into a json-formatted string
+    pub fn toString(&self) -> String {
+        return Json::renderJson(self);
     }
 
     /// Adds a node to the Json struct

@@ -4,7 +4,7 @@
 //! ```toml
 //! ...
 //! [dependencies]
-//! rsjson = "0.5.1";
+//! rsjson = "0.6.0";
 //! ```
 //! or run
 //! ```bash
@@ -35,7 +35,6 @@
 //! - in both previous cases, remeber to handle the eventual error (e.g. using `match`) or to call `unwrap()`
 //!
 //!
-//!
 //! - create an empty json instance
 //! ```rust
 //! let json = rsjson::Json::new();
@@ -51,17 +50,9 @@
 //! );
 //! ```
 //!
-//! - edit a node's label
-//! ```rust
-//! json.editNode(
-//!     "nodeLabel",
-//!     "newNodeLabel"
-//! );
-//! ```
-//!
 //! - edit a node's content
 //! ```rust
-//! json.editContent(
+//! json.setContent(
 //!     "nodeLabel",
 //!     rsjson::NodeContent::Bool(true)
 //! );
@@ -69,14 +60,20 @@
 //!
 //! - remove a node
 //! ```rust
-//! json.removeNode(
+//! json.remove(
 //!     "nodeLabel"
 //! );
+//! ```
+//!
+//! - check the existance of a label
+//! ```rust
+//! let exists: bool = json.has("nodeLabel");
 //! ```
 
 #![allow(non_snake_case, unused_assignments)]
 
 use std::{fs, path};
+use std::collections::HashSet;
 
 const DIGITS: [&str; 11] = [
     "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "."
@@ -285,6 +282,8 @@ impl NodeContent {
     }
 }
 
+/// Node struct represents a pair of label (String) and content (rsjson::NodeContent)
+/// implements a getter for both label and content
 #[derive(Debug, Clone, PartialEq)]
 pub struct Node {
     label: String,
@@ -310,13 +309,15 @@ impl Node {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Json {
-    nodes: Vec<Node>
+    nodes: Vec<Node>,
+    labels: HashSet<String>
 }
 
 impl Json {
     pub fn new() -> Json {
         return Json {
-            nodes: Vec::<Node>::new()
+            nodes: Vec::<Node>::new(),
+            labels: HashSet::<String>::new()
         }
     }
 
@@ -355,6 +356,7 @@ impl Json {
     fn json(tokens: &Vec<Token>, startIndex: usize) -> (usize, Option<Json>, bool) {
         let mut index = startIndex;
         let mut nodes = Vec::<Node>::new();
+        let mut labels = HashSet::<String>::new();
 
         while index < tokens.len() {
             match tokens.get(index).unwrap() {
@@ -373,7 +375,13 @@ impl Json {
                         index += 1;
                     }
 
-                    nodes.push(node.unwrap());
+                    match node {
+                        Some(node) => {
+                            labels.insert(node.label.clone());
+                            nodes.push(node);
+                        },
+                        None => {}
+                    }
                 },
                 Token::CloseBrace => {
                     break
@@ -381,7 +389,7 @@ impl Json {
                 _ => return (index, None, true)
             }
         }
-        (index, Some(Json{nodes: nodes}), false)
+        (index, Some(Json{nodes: nodes, labels}), false)
     }
 
     fn list(tokens: &Vec<Token>, startIndex: usize) -> (usize, Option<NodeContent>, bool) {
@@ -609,21 +617,8 @@ impl Json {
         self.nodes.push(node);
     }
 
-    /// Changes the label of a node, returns a bool representing the status of the change
-    pub fn changeLabel<T: ToString>(&mut self, label: T, newLabel: T) -> bool {
-        for node in &mut self.nodes {
-            if node.label == label.to_string() {
-
-                node.label = newLabel.to_string().clone();
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// Changes the content of a node, returns a bool representing the status of the change
-    pub fn changeContent<T: ToString>(&mut self, label: T, content: NodeContent) -> bool {
+    pub fn setContent<T: ToString>(&mut self, label: T, content: NodeContent) -> bool {
         for node in &mut self.nodes {
             if node.label == label.to_string() {
 
@@ -636,7 +631,7 @@ impl Json {
     }
 
     /// Removes a node basing on its label
-    pub fn removeNode<T: ToString>(&mut self, label: T) -> bool {
+    pub fn remove<T: ToString>(&mut self, label: T) -> bool {
         let mut index: usize = 0;
 
         for node in &self.nodes {
@@ -654,6 +649,11 @@ impl Json {
     pub fn bytes(&self) -> Vec<u8> {
         Json::renderJson(self).bytes().collect::<Vec<u8>>()
     }
+
+    /// Checks if exists a node with provided label
+    pub fn has<T: ToString>(&self, label: T) -> bool{
+        self.labels.contains(&label.to_string())
+    }
 }
 
 #[macro_export]
@@ -669,7 +669,5 @@ mod tests {
 
     #[test]
     fn test() {
-        let j = Json::fromFile("./newFile.json");
-        j.unwrap().writeToFile("file.json");
     }
 }

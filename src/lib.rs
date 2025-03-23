@@ -136,16 +136,24 @@ impl Parser {
     fn parse(&mut self) -> bool {
         self.skipNull();
         while self.checkNotEnd() {
-            let current = self.get();
+            let mut current = self.get();
 
             if current == "\"" {
                 self.index += 1;
-                
-                let mut value = String::new();
-                let mut current = self.get();
 
-                while self.checkNotEnd() && current != "\"" {
-                    value += self.get().as_str();
+                let mut value = String::new();
+
+                while self.checkNotEnd() {
+                    current = self.get();
+
+                    if current.as_str() == "\"" && (&self.text[self.index-1..self.index] != "\\") {
+                        break
+
+                    } else if current.as_str() == "\"" && (&self.text[self.index-1..self.index] == "\\" && &self.text[self.index-2..self.index-1] == "\\") {
+                        break
+                    }
+
+                    value += current.as_str();
                     self.index += 1;
                 }
 
@@ -568,6 +576,9 @@ impl Json {
         let mut content = String::from("{");
 
         for node in &json.nodes {
+            let mut label = (&node.label).to_owned();
+            label = label.replace("\\", "\\\\").replace("\"", "\\\"");
+            
             content = format!("{}\"{}\":{},", content, &node.label, Self::renderContent(&node.content));
         }
 
@@ -599,7 +610,7 @@ impl Json {
             NodeContent::Float(float) => format!("{}", float),
             NodeContent::Int(int) => format!("{}", int),
             NodeContent::Null => String::from("null"),
-            NodeContent::String(string) => format!("\"{}\"", string),
+            NodeContent::String(string) => format!("\"{}\"", string.replace("\\", "\\\\").replace("\"", "\\\"")),
             NodeContent::List(list) => Self::renderList(&list),
             NodeContent::Json(json) => Self::renderJson(&json),
         }
@@ -677,7 +688,10 @@ mod tests {
 
     #[test]
     fn test() {
-        let j = Json::fromFile("./map.json");
+        let content = std::fs::read_to_string("./map.json");
+        let j = Json::fromString(content.unwrap()).unwrap();
 
+        println!("{:?}", j);
+        return;
     }
 }

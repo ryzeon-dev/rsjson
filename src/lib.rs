@@ -121,7 +121,12 @@ impl Parser {
     }
 
     fn get(&mut self) -> String {
-        self.text[self.index..self.index + 1].to_string()
+        match self.text.get(self.index..self.index+1) {
+            Some(c) => c.to_string(),
+            None => {
+                panic!("Non utf8 character found, which is not accepted")
+            }
+        }
     }
 
     fn checkNotEnd(&self) -> bool {
@@ -132,11 +137,14 @@ impl Parser {
         self.skipNull();
         while self.checkNotEnd() {
             let current = self.get();
+
             if current == "\"" {
                 self.index += 1;
+                
                 let mut value = String::new();
+                let mut current = self.get();
 
-                while self.checkNotEnd() && self.get() != "\"" {
+                while self.checkNotEnd() && current != "\"" {
                     value += self.get().as_str();
                     self.index += 1;
                 }
@@ -237,7 +245,7 @@ pub enum NodeContent {
 impl NodeContent {
     pub fn toString(&self) -> Option<String> {
         match self {
-            NodeContent::String(value) => Some(value.to_string()),
+            NodeContent::String(value) => Some(value.to_string().replace("\"", "\\\"")),
             _ => None
         }
     }
@@ -293,7 +301,7 @@ pub struct Node {
 impl Node {
     pub fn new<T: ToString>(label: T, content: NodeContent) -> Node {
         Node {
-            label: label.to_string(),
+            label: label.to_string().replace("\"", "\\\""),
             content: content
         }
     }
@@ -669,5 +677,7 @@ mod tests {
 
     #[test]
     fn test() {
+        let j = Json::fromFile("./map.json");
+
     }
 }
